@@ -1,9 +1,11 @@
-This is a fork of https://github.com/vlevit/notify-send.sh
+This is a fork of [vlevit/notify-send.sh](https://github.com/vlevit/notify-send.sh)
 The main purpose and differences are:
-* Refactored to remove all the unnecessary external tools (dc, bc, sed), <<< here-docs (which create temp files behind the scenes), subshells (all but one use of foo=$(foo ...) could have been done with direct variables and saved a bunch of forks (and now are), and generally optimize and tighten the code aside from those issues.
-* Improve the handling of actions. For a lengthy description, see:
-  https://github.com/bkw777/mainline/blob/master/lib/notify_send/mainline_changes.txt
-* Also a lot of admittedly gratuitous stylistic changes because I just prefer short variable names except where actually useful, and prefer foo && { stuff } vs if foo ;then stuff ;fi  etc
+* Refactored to remove all the unnecessary external tools (dc, bc, sed)
+* Remove unnecessary here-docs (they create temp files behind the scenes)
+* Remove unecessary subshells
+* General optimizing and tightening
+* Fix the handling of actions. For a lengthy explaination of the problem and the fix, see [mainline_changes.txt]()
+* Also a lot of admittedly gratuitous stylistic changes because I just prefer short variable names except where actually useful, and I just prefer "foo && { stuff }" vs "if foo ;then stuff ;fi"  etc.
 
 # notify-send.sh
 
@@ -19,7 +21,7 @@ with the following command:
 
 ## Usage
 
-notify-send.sh has all command line options of notify-send with a few
+notify-send.sh has mostly the same command line options as notify-send with a few
 additional ones:
 
     Usage:
