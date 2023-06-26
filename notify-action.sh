@@ -16,7 +16,7 @@ abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
 
 # consume the command line
 typeset -i ID="${1}" ;shift
-((${ID}>0)) || abrt "no notification id"
+((ID>0)) || abrt "no notification id"
 typeset -A a ;while ((${#})) ;do a[${1}]=${2} ;shift 2 ;done
 ((${#a[@]})) || abrt "no actions"
 
@@ -32,8 +32,8 @@ for f in ${TMP}/${APP_NAME}.+([0-9]).p ;do
 	[[ ${f} -ot ${GDBUS_PIDF} ]] || continue
 	read d i p x < ${f}
 	[[ "${d}" == "${DISPLAY}" ]] || continue
-	((${i}==${ID})) || continue
-	((${p}>1)) || continue
+	((i==ID)) || continue
+	((p>1)) || continue
 	rm -f "${f}"
 	kill ${p}
 done
@@ -45,7 +45,7 @@ conclude () {
 	[[ -s ${GDBUS_PIDF} ]] || exit 0
 	read d i p x < "${GDBUS_PIDF}"
 	rm -f "${GDBUS_PIDF}"
-	((${p}>1)) || exit
+	((p>1)) || exit
 	kill ${p}
 }
 
@@ -59,7 +59,7 @@ doit () {
 {
 	gdbus ${GDBUS_ARGS[@]} & echo ${!} >> "${GDBUS_PIDF}"
 } |while IFS=" :.(),'" read x x x x e x i x k x ;do
-	((${i}==${ID})) || continue
+	((i==ID)) || continue
 	case "${e}" in
 		"NotificationClosed") doit "close" ;;
 		"ActionInvoked") doit "${k}" ;;

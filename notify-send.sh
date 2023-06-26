@@ -27,7 +27,7 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 	trap "set >&2" 0
 }
 
-VERSION="1.1-bkw777"
+VERSION="1.2-bkw777"
 ACTION_SH=${0%/*}/notify-action.sh
 NOTIFY_ARGS=(--session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications)
 
@@ -45,6 +45,22 @@ positional=false
 summary_set=false
 _r=
 
+# https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#hints
+typeset -Ar HINT_TYPES=(
+	[action-icons]=BOOLEAN
+	[category]=STRING
+	[desktop-entry]=STRING
+	[image-path]=STRING
+	[resident]=BOOLEAN
+	[sound-file]=STRING
+	[sound-name]=STRING
+	[suppress-sound]=BOOLEAN
+	[transient]=BOOLEAN
+	[x]=INT32
+	[y]=INT32
+	[urgency]=BYTE
+)
+
 help () {
 	cat <<EOF
 Usage:
@@ -60,16 +76,17 @@ Application Options:
   -a, --app-name=APP_NAME           Specifies the app name for the icon.
   -i, --icon=ICON[,ICON...]         Specifies an icon filename or stock icon to display.
   -c, --category=TYPE[,TYPE...]     Specifies the notification category.
-  -h, --hint=TYPE:NAME:VALUE        Specifies basic extra data to pass. Valid types are int, double, string and byte.
+  -h, --hint=NAME:VALUE[:TYPE]      Specifies basic extra data to pass.
   -o, --action=LABEL:COMMAND        Specifies an action. Can be passed multiple times. LABEL is usually a button's label. COMMAND is a shell command executed when action is invoked.
   -d, --default-action=COMMAND      Specifies the default action which is usually invoked by clicking the notification.
   -l, --close-action=COMMAND        Specifies the action invoked when notification is closed.
   -p, --print-id                    Print the notification ID to the standard output.
-  -r, --replace=ID                  Replace existing notification.
+  -r, --replace=ID                  Replace (update) an existing notification.
   -R, --replace-file=FILE           Store and load notification replace ID to/from this file.
   -s, --close=ID                    Close notification. With -R, get ID from -R file.
   -v, --version                     Version of the package.
 
+Reference: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
 EOF
 }
 
@@ -97,16 +114,15 @@ process_category () {
 }
 
 make_hint () {
-	_r= ;local t=${1} n=${2} c=${3}
-	[[ ${t} =~ ^(byte|int32|double|string)$ ]] || abrt "Hint types: byte int32 double string"
-	[[ ${t} = string ]] && c="\"${3}\""
-	_r="\"${n}\":<${t} ${c}>"
+	_r= ;local n=${1} v=${2} t=${HINT_TYPES[n]:-${3^^}}
+	[[ ${t} = STRING ]] && v="\"${v}\""
+	_r="\"${n}\":<${t} ${v}>"
 }
 
 process_hint () {
 	local a ;IFS=: a=(${1})
-	((${#a[@]}==3)) || abrt "Hint syntax: \"TYPE:NAME:VALUE\""
-	make_hint "${a[0]}" "${a[1]}" "${a[2]}" && HINTS+=(${_r})
+	((${#a[@]}==2 || ${#a[@]}==3)) || abrt "Hint syntax: \"NAME:VALUE[:TYPE]\""
+	make_hint "${a[0]}" "${a[1]}" ${a[2]} && HINTS+=(${_r})
 }
 
 process_action () {
@@ -206,7 +222,7 @@ done
 
 # build the actions & hints strings
 a= ;for s in "${AKEYS[@]}" ;do a+=,${s} ;done ;a=${a:1}
-make_hint byte urgency "${URGENCY}" ;h=${_r}
+make_hint urgency "${URGENCY}" ;h=${_r}
 for s in "${HINTS[@]}" ;do h+=,${s} ;done
 
 # send the dbus message, collect the notification ID
