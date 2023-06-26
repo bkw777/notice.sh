@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-
-# notify-send.sh - drop-in replacement for notify-send with more features
-# Copyright (C) 2015-2020 notify-send.sh authors (see AUTHORS file)
+# notify-send.sh - replacement for notify-send with more features
+# Copyright (C) 2015-2023 notify-send.sh authors (see AUTHORS file)
+# https://github.com/bkw777/notify-send.sh
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,8 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# Desktop Notifications Specification
+# reference
 # https://developer.gnome.org/notification-spec/
+# https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+
 
 SELF=${0##*/}
 TMP=${XDG_RUNTIME_DIR:-/tmp}
@@ -29,7 +31,7 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 
 VERSION="1.2-bkw777"
 ACTION_SH=${0%/*}/notify-action.sh
-NOTIFY_ARGS=(--session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications)
+GDBUS_ARGS=(call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications --method org.freedesktop.Notifications.Notify)
 
 typeset -i i=0 ID=0 EXPIRE_TIME=-1 URGENCY=1
 unset ID_FILE
@@ -45,7 +47,6 @@ positional=false
 summary_set=false
 _r=
 
-# https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#hints
 typeset -Ar HINT_TYPES=(
 	[action-icons]=BOOLEAN
 	[category]=STRING
@@ -227,10 +228,9 @@ for s in "${HINTS[@]}" ;do h+=,${s} ;done
 
 # send the dbus message, collect the notification ID
 typeset -i OLD_ID=${ID} NEW_ID=0
-s=$(gdbus call ${NOTIFY_ARGS[@]} \
-	--method org.freedesktop.Notifications.Notify \
+s=$(gdbus ${GDBUS_ARGS[@]} -- \
 	"${APP_NAME}" ${ID} "${ICON}" "${SUMMARY}" "${BODY}" \
-	"[${a}]" "{${h}}" "int32 ${EXPIRE_TIME}")
+	"[${a}]" "{${h}}" "${EXPIRE_TIME}")
 
 # process the ID
 s=${s%,*} NEW_ID=${s#* }

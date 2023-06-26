@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# part of https://github.com/bkw777/notify-send.sh
 
 SELF=${0##*/}
 TMP=${XDG_RUNTIME_DIR:-/tmp}
