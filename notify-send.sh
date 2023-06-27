@@ -17,9 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # reference
-# https://developer.gnome.org/notification-spec/
 # https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
-
 
 SELF=${0##*/}
 TMP=${XDG_RUNTIME_DIR:-/tmp}
@@ -50,18 +48,18 @@ summary_set=false
 _r=
 
 typeset -Ar HINT_TYPES=(
-	[action-icons]=BOOLEAN
-	[category]=STRING
-	[desktop-entry]=STRING
-	[image-path]=STRING
-	[resident]=BOOLEAN
-	[sound-file]=STRING
-	[sound-name]=STRING
-	[suppress-sound]=BOOLEAN
-	[transient]=BOOLEAN
-	[x]=INT32
-	[y]=INT32
-	[urgency]=BYTE
+	[action-icons]=boolean
+	[category]=string
+	[desktop-entry]=string
+	[image-path]=string
+	[resident]=boolean
+	[sound-file]=string
+	[sound-name]=string
+	[suppress-sound]=boolean
+	[transient]=boolean
+	[x]=int32
+	[y]=int32
+	[urgency]=byte
 )
 
 help () {
@@ -117,8 +115,8 @@ process_category () {
 }
 
 make_hint () {
-	_r= ;local n=${1} v=${2} t=${HINT_TYPES[n]:-${3^^}}
-	[[ ${t} = STRING ]] && v="\"${v}\""
+	_r= ;local n=${1} v=${2} t=${HINT_TYPES[$1]:-${3,,}}
+	[[ ${t} = string ]] && v="\"${v}\""
 	_r="\"${n}\":<${t} ${v}>"
 }
 
