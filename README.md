@@ -1,4 +1,5 @@
-This is a fork of [vlevit/notify-send.sh](https://github.com/vlevit/notify-send.sh)
+This is [bkw777/notify-send.sh](https://github.com/bkw777/notify-send.sh)
+a rewrite of [vlevit/notify-send.sh](https://github.com/vlevit/notify-send.sh)
 The main purpose and differences are:
 * Refactored to remove all the unnecessary external tools (dc, bc, sed)
 * Remove unnecessary here-docs (they create temp files behind the scenes)
@@ -11,13 +12,7 @@ The main purpose and differences are:
 
 notify-send.sh is a replacement for notify-send (from libnotify) with ability to update and close existing notifications, and specify commands to be run in response to actions.
 
-In particular, actions work differently.
-
-In notify-send, you supply a button label, and notify-send itself waits for the dbus message, and just prints the invoked action if any. You have to incorporate notify-send into some other process to collect that output and decide what to do about it.
-
-In notify-send.sh, you supply both the button label and the command to run via the --action option, and notify-send.sh sets up a background watcher process for you to monitor dbus for that action and run the given command if that button is ever pressed.
-
-The dependencies are `bash` and `gdbus` (part of glib2).
+Requires `bash` and `gdbus` (part of glib2).
 
 ## Install
 ```

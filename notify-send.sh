@@ -110,7 +110,7 @@ process_urgency () {
 process_category () {
 	local a c ;IFS=, a=($1)
 	for c in "${a[@]}"; do
-		make_hint string category "$c" && HINTS+=(${_r})
+		make_hint category "$c" && HINTS+=(${_r})
 	done
 }
 
