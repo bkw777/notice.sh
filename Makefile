@@ -1,5 +1,4 @@
 
-NAME = notify-send.sh
 SOURCES = notify-send.sh notify-action.sh
 
 PREFIX = /usr/local
