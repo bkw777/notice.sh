@@ -19,7 +19,7 @@ abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
 
 # consume the command line
 typeset -i ID="${1}" ;shift
-((ID>0)) || abrt "no notification id"
+((ID)) || abrt "no notification id"
 typeset -A a ;while ((${#})) ;do a[${1}]=${2} ;shift 2 ;done
 ((${#a[@]})) || abrt "no actions"
 

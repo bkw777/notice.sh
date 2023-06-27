@@ -94,7 +94,7 @@ EOF
 abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
 
 notify_close () {
-	i=${2} ;((i>0)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
+	i=${2} ;((i)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
 	gdbus ${GDBUS_CALL} --method org.freedesktop.Notifications.CloseNotification -- "${1}" >&-
 }
 
@@ -208,7 +208,7 @@ while ((${#})) ; do
 		-s|--close|--close=*)
 			[[ "${1}" = --close=* ]] && i=${1#*=} || { shift ;i=${1} ; }
 			((i<1)) && ((ID>0)) && i=${ID}
-			((i>0)) && notify_close ${i} ${EXPIRE_TIME}
+			((i)) && notify_close ${i} ${EXPIRE_TIME}
 			exit ${?}
 			;;
 		--)
@@ -234,13 +234,13 @@ s=$(gdbus ${GDBUS_CALL} --method org.freedesktop.Notifications.Notify -- \
 
 # process the ID
 s=${s%,*} NEW_ID=${s#* }
-((${NEW_ID}>0)) || abrt "invalid notification ID from gdbus"
-((${OLD_ID}>0)) || ID=${NEW_ID}
-[[ "${ID_FILE}" ]] && ((${OLD_ID}<1)) && echo ${ID} > "${ID_FILE}"
+((NEW_ID)) || abrt "invalid notification ID from gdbus"
+((OLD_ID)) || ID=${NEW_ID}
+[[ "${ID_FILE}" ]] && ((OLD_ID<1)) && echo ${ID} > "${ID_FILE}"
 ${PRINT_ID} && echo ${ID}
 
 # bg task to monitor dbus and perform the actions
-((${#ACMDS[@]}>0)) && setsid -f "${ACTION_SH}" ${ID} "${ACMDS[@]}" >&- 2>&- &
+((${#ACMDS[@]})) && setsid -f "${ACTION_SH}" ${ID} "${ACMDS[@]}" >&- 2>&- &
 
 # bg task to wait expire time and then actively close notification
-${EXPLICIT_CLOSE} && ((${EXPIRE_TIME}>0)) && setsid -f "${0}" -t ${EXPIRE_TIME} -s ${ID} >&- 2>&- <&- &
+${EXPLICIT_CLOSE} && ((EXPIRE_TIME)) && setsid -f "${0}" -t ${EXPIRE_TIME} -s ${ID} >&- 2>&- <&- &
