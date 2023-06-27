@@ -8,7 +8,7 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 	echo "$0 debug logging to $e" >&2
 	exec 2>"$e"
 	set -x
-	ARGV=($0 $@)
+	ARGV=("$0" "$@")
 	trap "set >&2" 0
 }
 
