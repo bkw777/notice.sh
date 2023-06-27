@@ -31,6 +31,7 @@ $ sudo make install
     Application Options:
       -u, --urgency=LEVEL               Specifies the urgency level (low, normal, critical).
       -t, --expire-time=TIME            Specifies the timeout in milliseconds at which to expire the notification.
+      -f, --force-expire                Actively close the notification after the expire time, or after processing any action.
       -a, --app-name=APP_NAME           Specifies the app name for the icon
       -i, --icon=ICON[,ICON...]         Specifies an icon filename or stock icon to display.
       -c, --category=TYPE[,TYPE...]     Specifies the notification category.

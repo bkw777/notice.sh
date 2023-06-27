@@ -163,7 +163,7 @@ while (($#)) ; do
 		-t|--expire-time|--expire-time=*)
 			[[ "$1" = --expire-time=* ]] && EXPIRE_TIME=${1#*=} || { shift ;EXPIRE_TIME=$1 ; }
 			;;
-		-f|--force-expire)
+		-f|--force-expire|--explicit-close)
 			export EXPLICIT_CLOSE=true
 			;;
 		-a|--app-name|--app-name=*)
