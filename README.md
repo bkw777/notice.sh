@@ -17,15 +17,15 @@ The dependencies are `bash` and `gdbus` (shipped with glib2).
 In Debian and Ubuntu you can ensure all dependencies are installed
 with the following command:
 
-    $ sudo apt-get install bash libglib2.0-bin
+    $ sudo apt install bash libglib2.0-bin
 
 ## Usage
 
-notify-send.sh has mostly the same command line options as notify-send with a few
-additional ones:
+notify-send.sh has mostly the same command line options as notify-send,
+with a few additional ones and a few differences.
 
     Usage:
-      notify-send.sh [OPTION...] <SUMMARY> [BODY] - create a notification
+      notify-send.sh [OPTION...] <SUMMARY> [BODY]
 
     Help Options:
       -?|--help                         Show help options
@@ -47,39 +47,43 @@ additional ones:
       -v, --version                     Version of the package.
 
 
-So, for example, to notify a user of a new email we can run:
+So, for example, to notify a user of a new email:
+```
+$ notify-send.sh --icon=mail-unread --app-name=mail --hint=sound-name:message-new-email Subject Message
+```
 
-    $ notify-send.sh --icon=mail-unread --app-name=mail --hint=string:sound-name:message-new-email Subject Message
+To replace or close an existing message first we need to know its id.
+To know the id we have to run notify-send.sh with `--print-id` the first time:
+```
+$ notify-send.sh --print-id "The Subject" "The Message"
+37
+```
 
-To replace or close existing message first we should know its id. To
-get id we have to run notify-send.sh with `--print-id`:
+Update this notification using `--replace` option:
+```
+$ notify-send.sh --replace=37 "New Subject" "New Message"
+```
 
-    $ notify-send.sh --print-id Subject Message
-    10
+Close this notification:
+```
+$ notify-send.sh --close=37
+```
 
-Now we can update this notification using `--replace` option:
+Use `--replace-file` to make sure that no more than one notification is created per file.  
+`--replace-file` means to get the ID from the given filename, and to store the ID in that filename.  
+For example, to increase volume by 5% and show the current volume value:
+```
+$ notify-send.sh --replace-file=/tmp/volumenotification "Increase Volume" "$(amixer sset Master 5%+ | awk '/[0-9]+%/ {print $2,$5}')"
+```
 
-    $ notify-send.sh --replace=10 --print-id "New Subject" "New Message"
-    10
+To add one or more buttons to the notification, use one or more `--action=...`:
+```
+$ notify-send.sh "Subject" "Message" --action "Show another notification:notify-send.sh 'New Subject' 'New Message'"
+```
 
-Now we may want to close the notification:
+To perform an action when the notification area is clicked (vs a button), use `--default-action=...`
 
-    $ notify-send.sh --close=10
-
-Use `--replace-file` to make sure that no more than one notification
-is created per file. For example, to increase volume by 5% and show
-the current volume value you can run:
-
-    $ notify-send.sh --replace-file=/tmp/volumenotification "Increase Volume" "$(amixer sset Master 5%+ | awk '/[0-9]+%/ {print $2,$5}')"
-
-You can add a button to the notification with `-o` or `--default-action=`:
-
-    $ notify-send.sh "Subject" "Message" -o "Show another notification:notify-send.sh 'new Subject' 'New Message'"
-
-You can specify multiple actions by passing `-o` multiple times. Use
-`-d` or `--default-action` for action which is usually invoked when
-notification area is clicked. Use `-l` or `--close-action` for action
-performed when notification is closed.
+To perform an action when the notification is closed, use `--close-action=...`
 
     $ notify-send.sh "Subject" "Message" \
         -d "notify-send.sh 'Default Action'" \
