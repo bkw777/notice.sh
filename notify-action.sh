@@ -10,8 +10,8 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 }
 
 SEND_SH=${0%/*}/notify-send.sh
-GDBUS_PIDF=${TMP}/${APP_NAME:=${SELF}}.${$}.p
-GDBUS_ARGS=(monitor --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications)
+GDBUS_PIDFILE=${TMP}/${APP_NAME:=${SELF}}.${$}.p
+GDBUS_MONITOR="monitor --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications"
 
 abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
 
@@ -27,10 +27,10 @@ set +H
 shopt -s extglob
 
 # kill obsolete monitors (now)
-echo -n "${DISPLAY} ${ID} " > "${GDBUS_PIDF}"
+echo -n "${DISPLAY} ${ID} " > "${GDBUS_PIDFILE}"
 for f in ${TMP}/${APP_NAME}.+([0-9]).p ;do
 	[[ -s ${f} ]] || continue
-	[[ ${f} -ot ${GDBUS_PIDF} ]] || continue
+	[[ ${f} -ot ${GDBUS_PIDFILE} ]] || continue
 	read d i p x < ${f}
 	[[ "${d}" == "${DISPLAY}" ]] || continue
 	((i==ID)) || continue
@@ -43,9 +43,9 @@ done
 trap "conclude" 0
 conclude () {
 	${DEBUG_NOTIFY_SEND} && set >&2
-	[[ -s ${GDBUS_PIDF} ]] || exit 0
-	read d i p x < "${GDBUS_PIDF}"
-	rm -f "${GDBUS_PIDF}"
+	[[ -s ${GDBUS_PIDFILE} ]] || exit 0
+	read d i p x < "${GDBUS_PIDFILE}"
+	rm -f "${GDBUS_PIDFILE}"
 	((p>1)) || exit
 	kill ${p}
 }
@@ -58,7 +58,7 @@ doit () {
 
 # start the monitor
 {
-	gdbus ${GDBUS_ARGS[@]} & echo ${!} >> "${GDBUS_PIDF}"
+	gdbus ${GDBUS_MONITOR} & echo ${!} >> "${GDBUS_PIDFILE}"
 } |while IFS=" :.(),'" read x x x x e x i x k x ;do
 	((i==ID)) || continue
 	case "${e}" in

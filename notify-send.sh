@@ -31,7 +31,7 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 
 VERSION="1.2-bkw777"
 ACTION_SH=${0%/*}/notify-action.sh
-GDBUS_ARGS=(call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications --method org.freedesktop.Notifications.Notify)
+GDBUS_CALL="call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications"
 
 typeset -i i=0 ID=0 EXPIRE_TIME=-1 URGENCY=1
 unset ID_FILE
@@ -94,8 +94,8 @@ EOF
 abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
 
 notify_close () {
-	i=${2} ;((${i}>0)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
-	gdbus call ${NOTIFY_ARGS[@]} --method org.freedesktop.Notifications.CloseNotification "${1}" >&-
+	i=${2} ;((i>0)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
+	gdbus ${GDBUS_CALL} --method org.freedesktop.Notifications.CloseNotification -- "${1}" >&-
 }
 
 process_urgency () {
@@ -207,8 +207,8 @@ while ((${#})) ; do
 			;;
 		-s|--close|--close=*)
 			[[ "${1}" = --close=* ]] && i=${1#*=} || { shift ;i=${1} ; }
-			((${i}<1)) && ((${ID}>0)) && i=${ID}
-			((${i}>0)) && notify_close ${i} ${EXPIRE_TIME}
+			((i<1)) && ((ID>0)) && i=${ID}
+			((i>0)) && notify_close ${i} ${EXPIRE_TIME}
 			exit ${?}
 			;;
 		--)
@@ -228,7 +228,7 @@ for s in "${HINTS[@]}" ;do h+=,${s} ;done
 
 # send the dbus message, collect the notification ID
 typeset -i OLD_ID=${ID} NEW_ID=0
-s=$(gdbus ${GDBUS_ARGS[@]} -- \
+s=$(gdbus ${GDBUS_CALL} --method org.freedesktop.Notifications.Notify -- \
 	"${APP_NAME}" ${ID} "${ICON}" "${SUMMARY}" "${BODY}" \
 	"[${a}]" "{${h}}" "${EXPIRE_TIME}")
 
