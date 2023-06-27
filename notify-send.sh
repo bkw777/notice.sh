@@ -24,7 +24,7 @@ TMP=${XDG_RUNTIME_DIR:-/tmp}
 ${DEBUG_NOTIFY_SEND:=false} && {
 	e="${TMP}/.${SELF}.${$}.e"
 	echo "$0 debug logging to $e" >&2
-	exec 2>${TMP}/.${SELF}.${$}.e
+	exec 2>"$e"
 	set -x
 	ARGV=("$0" "$@")
 	trap "set >&2" 0
@@ -91,15 +91,15 @@ Reference: https://specifications.freedesktop.org/notification-spec/notification
 EOF
 }
 
-abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
+abrt () { echo "${SELF}: $@" >&2 ; exit 1 ; }
 
 notify_close () {
-	i=${2} ;((i)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
-	gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.CloseNotification -- "${1}" >&-
+	i=$2 ;((i)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
+	gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.CloseNotification -- "$1" >&-
 }
 
 process_urgency () {
-	case "${1}" in
+	case "$1" in
 		0|low) URGENCY=0 ;;
 		1|normal) URGENCY=1 ;;
 		2|critical) URGENCY=2 ;;
@@ -108,46 +108,46 @@ process_urgency () {
 }
 
 process_category () {
-	local a c ;IFS=, a=(${1})
+	local a c ;IFS=, a=($1)
 	for c in "${a[@]}"; do
-		make_hint string category "${c}" && HINTS+=(${_r})
+		make_hint string category "$c" && HINTS+=(${_r})
 	done
 }
 
 make_hint () {
-	_r= ;local n=${1} v=${2} t=${HINT_TYPES[$1]:-${3,,}}
-	[[ ${t} = string ]] && v="\"${v}\""
-	_r="\"${n}\":<${t} ${v}>"
+	_r= ;local n=$1 v=$2 t=${HINT_TYPES[$1]:-${3,,}}
+	[[ $t = string ]] && v="\"$v\""
+	_r="\"$n\":<$t $v>"
 }
 
 process_hint () {
-	local a ;IFS=: a=(${1})
+	local a ;IFS=: a=($1)
 	((${#a[@]}==2 || ${#a[@]}==3)) || abrt "Hint syntax: \"NAME:VALUE[:TYPE]\""
 	make_hint "${a[0]}" "${a[1]}" ${a[2]} && HINTS+=(${_r})
 }
 
 process_action () {
-	local a k ;IFS=: a=(${1})
+	local a k ;IFS=: a=($1)
 	((${#a[@]}==2)) || abrt "Action syntax: \"NAME:COMMAND\""
 	k=${#AKEYS[@]}
-	AKEYS+=("\"${k}\",\"${a[0]}\"")
-	ACMDS+=("${k}" "${a[1]}")
+	AKEYS+=("\"$k\",\"${a[0]}\"")
+	ACMDS+=("$k" "${a[1]}")
 }
 
 # key=close:   key:command, no key:label
 process_special_action () {
-	[[ "${2}" ]] || abrt "Command must not be empty"
-	ACMDS+=("${1}" "${2}")
+	[[ "$2" ]] || abrt "Command must not be empty"
+	ACMDS+=("$1" "$2")
 }
 
 process_posargs () {
-	[[ "${1}" = -* ]] && ! ${positional} && abrt "Unknown option ${1}"
-	${summary_set} && BODY=${1} || SUMMARY=${1} summary_set=true
+	[[ "$1" = -* ]] && ! ${positional} && abrt "Unknown option $1"
+	${summary_set} && BODY=$1 || SUMMARY=$1 summary_set=true
 }
 
-while ((${#})) ; do
+while (($#)) ; do
 	s= i=0
-	case "${1}" in
+	case "$1" in
 		-\?|--help)
 			help
 			exit 0
@@ -157,74 +157,74 @@ while ((${#})) ; do
 			exit 0
 			;;
 		-u|--urgency|--urgency=*)
-			[[ "${1}" = --urgency=* ]] && s=${1#*=} || { shift ;s=${1} ; }
-			process_urgency "${s}"
+			[[ "$1" = --urgency=* ]] && s=${1#*=} || { shift ;s=$1 ; }
+			process_urgency "$s"
 			;;
 		-t|--expire-time|--expire-time=*)
-			[[ "${1}" = --expire-time=* ]] && EXPIRE_TIME=${1#*=} || { shift ;EXPIRE_TIME=${1} ; }
+			[[ "$1" = --expire-time=* ]] && EXPIRE_TIME=${1#*=} || { shift ;EXPIRE_TIME=$1 ; }
 			;;
 		-f|--force-expire)
 			export EXPLICIT_CLOSE=true
 			;;
 		-a|--app-name|--app-name=*)
-			[[ "${1}" = --app-name=* ]] && APP_NAME=${1#*=} || { shift ;APP_NAME=${1} ; }
+			[[ "$1" = --app-name=* ]] && APP_NAME=${1#*=} || { shift ;APP_NAME=$1 ; }
 			export APP_NAME
 			;;
 		-i|--icon|--icon=*)
-			[[ "${1}" = --icon=* ]] && ICON=${1#*=} || { shift ;ICON=${1} ; }
+			[[ "$1" = --icon=* ]] && ICON=${1#*=} || { shift ;ICON=$1 ; }
 			;;
 		-c|--category|--category=*)
-			[[ "${1}" = --category=* ]] && s=${1#*=} || { shift ;s=${1} ; }
-			process_category "${s}"
+			[[ "$1" = --category=* ]] && s=${1#*=} || { shift ;s=$1 ; }
+			process_category "$s"
 			;;
 		-h|--hint|--hint=*)
-			[[ "${1}" = --hint=* ]] && s=${1#*=} || { shift ;s=${1} ; }
-			process_hint "${s}"
+			[[ "$1" = --hint=* ]] && s=${1#*=} || { shift ;s=$1 ; }
+			process_hint "$s"
 			;;
 		-o|--action|--action=*)
-			[[ "${1}" == --action=* ]] && s=${1#*=} || { shift ;s=${1} ; }
-			process_action "${s}"
+			[[ "$1" == --action=* ]] && s=${1#*=} || { shift ;s=$1 ; }
+			process_action "$s"
 			;;
 		-l|--close-action|--close-action=*)
-			[[ "${1}" == --close-action=* ]] && s=${1#*=} || { shift ;s=${1} ; }
-			process_special_action close "${s}"
+			[[ "$1" == --close-action=* ]] && s=${1#*=} || { shift ;s=$1 ; }
+			process_special_action close "$s"
 			;;
 		-p|--print-id)
 			PRINT_ID=true
 			;;
 		-r|--replace|--replace=*)
-			[[ "${1}" = --replace=* ]] && ID=${1#*=} || { shift ;ID=${1} ; }
+			[[ "$1" = --replace=* ]] && ID=${1#*=} || { shift ;ID=$1 ; }
 			;;
 		-R|--replace-file|--replace-file=*)
-			[[ "${1}" = --replace-file=* ]] && ID_FILE=${1#*=} || { shift ;ID_FILE=${1} ; }
+			[[ "$1" = --replace-file=* ]] && ID_FILE=${1#*=} || { shift ;ID_FILE=$1 ; }
 			[[ -s ${ID_FILE} ]] && read ID < "${ID_FILE}"
 			;;
 		-s|--close|--close=*)
-			[[ "${1}" = --close=* ]] && i=${1#*=} || { shift ;i=${1} ; }
+			[[ "$1" = --close=* ]] && i=${1#*=} || { shift ;i=$1 ; }
 			((i<1)) && ((ID)) && i=${ID}
-			((i)) && notify_close ${i} ${EXPIRE_TIME}
-			exit ${?}
+			((i)) && notify_close $i ${EXPIRE_TIME}
+			exit $?
 			;;
 		--)
 			positional=true
 			;;
 		*)
-			process_posargs "${1}"
+			process_posargs "$1"
 			;;
 	esac
 	shift
 done
 
 # build the actions & hints strings
-a= ;for s in "${AKEYS[@]}" ;do a+=,${s} ;done ;a=${a:1}
+a= ;for s in "${AKEYS[@]}" ;do a+=,$s ;done ;a=${a:1}
 make_hint urgency "${URGENCY}" ;h=${_r}
-for s in "${HINTS[@]}" ;do h+=,${s} ;done
+for s in "${HINTS[@]}" ;do h+=,$s ;done
 
 # send the dbus message, collect the notification ID
 typeset -i OLD_ID=${ID} NEW_ID=0
 s=$(gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.Notify -- \
 	"${APP_NAME}" ${ID} "${ICON}" "${SUMMARY}" "${BODY}" \
-	"[${a}]" "{${h}}" "${EXPIRE_TIME}")
+	"[$a]" "{$h}" "${EXPIRE_TIME}")
 
 # process the ID
 s=${s%,*} NEW_ID=${s#* }
@@ -237,4 +237,4 @@ ${PRINT_ID} && echo ${ID}
 ((${#ACMDS[@]})) && setsid -f "${ACTION_SH}" ${ID} "${ACMDS[@]}" >&- 2>&- &
 
 # bg task to wait expire time and then actively close notification
-${EXPLICIT_CLOSE} && ((EXPIRE_TIME)) && setsid -f "${0}" -t ${EXPIRE_TIME} -s ${ID} >&- 2>&- <&- &
+${EXPLICIT_CLOSE} && ((EXPIRE_TIME)) && setsid -f "$0" -t ${EXPIRE_TIME} -s ${ID} >&- 2>&- <&- &

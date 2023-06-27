@@ -16,12 +16,12 @@ SEND_SH=${0%/*}/notify-send.sh
 GDBUS_PIDFILE=${TMP}/${APP_NAME:=${SELF}}.${$}.p
 GDBUS_MONITOR="monitor --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications"
 
-abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
+abrt () { echo "${SELF}: $@" >&2 ; exit 1 ; }
 
 # consume the command line
-typeset -i ID="${1}" ;shift
+typeset -i ID="$1" ;shift
 ((ID)) || abrt "no notification id"
-typeset -A a ;while ((${#})) ;do a[${1}]=${2} ;shift 2 ;done
+typeset -A a ;while (($#)) ;do a[$1]=$2 ;shift 2 ;done
 ((${#a[@]})) || abrt "no actions"
 
 [[ "${DISPLAY}" ]] || abrt "no DISPLAY"
@@ -32,14 +32,14 @@ shopt -s extglob
 # kill obsolete monitors (now)
 echo -n "${DISPLAY} ${ID} " > "${GDBUS_PIDFILE}"
 for f in ${TMP}/${APP_NAME}.+([0-9]).p ;do
-	[[ -s ${f} ]] || continue
-	[[ ${f} -ot ${GDBUS_PIDFILE} ]] || continue
-	read d i p x < ${f}
-	[[ "${d}" == "${DISPLAY}" ]] || continue
+	[[ -s $f ]] || continue
+	[[ $f -ot ${GDBUS_PIDFILE} ]] || continue
+	read d i p x < $f
+	[[ "$d" == "${DISPLAY}" ]] || continue
 	((i==ID)) || continue
 	((p>1)) || continue
-	rm -f "${f}"
-	kill ${p}
+	rm -f "$f"
+	kill $p
 done
 
 # kill current monitor (on exit)
@@ -50,7 +50,7 @@ conclude () {
 	read d i p x < "${GDBUS_PIDFILE}"
 	rm -f "${GDBUS_PIDFILE}"
 	((p>1)) || exit
-	kill ${p}
+	kill $p
 }
 
 # execute an invoked command
@@ -64,10 +64,10 @@ doit () {
 	gdbus ${GDBUS_MONITOR} & echo ${!} >> "${GDBUS_PIDFILE}"
 } |while IFS=" :.(),'" read x x x x e x i x k x ;do
 	((i==ID)) || continue
-	${DEBUG_NOTIFY_SEND} && echo "event=\"$e\" key=\"$k\"" >&2
-	case "${e}" in
+	${DEBUG_NOTIFY_SEND} && printf 'event="%s" key="%s"\n' "$e" "$k" >&2
+	case "$e" in
 		"NotificationClosed") doit "close" ;;
-		"ActionInvoked") doit "${k}" ;;
+		"ActionInvoked") doit "$k" ;;
 	esac
 	break
 done
