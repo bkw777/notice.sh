@@ -24,6 +24,8 @@
 SELF=${0##*/}
 TMP=${XDG_RUNTIME_DIR:-/tmp}
 ${DEBUG_NOTIFY_SEND:=false} && {
+	e="${TMP}/.${SELF}.${$}.e"
+	echo "$0 debug logging to $e" >&2
 	exec 2>${TMP}/.${SELF}.${$}.e
 	set -x
 	trap "set >&2" 0
