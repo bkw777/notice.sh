@@ -9,26 +9,24 @@ The main purpose and differences are:
 
 # notify-send.sh
 
-notify-send.sh is a drop-in replacement for notify-send (from
-libnotify) with ability to update and close existing notifications.
+notify-send.sh is a replacement for notify-send (from libnotify) with ability to update and close existing notifications, and specify commands to be run in response to actions.
 
-The dependencies are `bash` and `gdbus` (shipped with glib2).
+In particular, actions work differently.
 
-In Debian and Ubuntu you can ensure all dependencies are installed
-with the following command:
+In notify-send, you supply a button label, and notify-send itself waits for the dbus message, and just prints the invoked action if any. You have to incorporate notify-send into some other process to collect that output and decide what to do about it.
 
-    $ sudo apt install bash libglib2.0-bin
+In notify-send.sh, you supply both the button label and the command to run via the --action option, and notify-send.sh sets up a background watcher process for you to monitor dbus for that action and run the given command if that button is ever pressed.
+
+The dependencies are `bash` and `gdbus` (part of glib2).
+
+## Install
+```
+$ sudo apt install bash libglib2.0-bin
+$ sudo make install
+```
 
 ## Usage
-
-notify-send.sh has mostly the same command line options as notify-send,
-with a few additional ones and a few differences.
-
-    Usage:
-      notify-send.sh [OPTION...] <SUMMARY> [BODY]
-
-    Help Options:
-      -?|--help                         Show help options
+    notify-send.sh [OPTION...] <SUMMARY> [BODY]
 
     Application Options:
       -u, --urgency=LEVEL               Specifies the urgency level (low, normal, critical).
@@ -38,14 +36,13 @@ with a few additional ones and a few differences.
       -c, --category=TYPE[,TYPE...]     Specifies the notification category.
       -h, --hint=TYPE:NAME:VALUE        Specifies basic extra data to pass. Valid types are int, double, string and byte.
       -o, --action=LABEL:COMMAND        Specifies an action. Can be passed multiple times. LABEL is usually a button's label. COMMAND is a shell command executed when action is invoked.
-      -d, --default-action=COMMAND      Specifies the default action which is usually invoked by clicking the notification.
       -l, --close-action=COMMAND        Specifies the action invoked when the notification is closed.
       -p, --print-id                    Print the notification ID to the standard output.
       -r, --replace=ID                  Replace existing notification.
       -R, --replace-file=FILE           Store and load notification replace ID to/from this file.
       -s, --close=ID                    Close notification.
       -v, --version                     Version of the package.
-
+      -?, --help                        This help
 
 So, for example, to notify a user of a new email:
 ```
@@ -81,11 +78,10 @@ To add one or more buttons to the notification, use one or more `--action=...`:
 $ notify-send.sh "Subject" "Message" --action "Show another notification:notify-send.sh 'New Subject' 'New Message'"
 ```
 
-To perform an action when the notification area is clicked (vs a button), use `--default-action=...`
-
 To perform an action when the notification is closed, use `--close-action=...`
 
     $ notify-send.sh "Subject" "Message" \
-        -d "notify-send.sh 'Default Action'" \
-        -o "Button Action:notify-send.sh 'Button Action'" \
+        -o "Button0 Action:notify-send.sh 'Button0 Action'" \
+        -o "Button1 Action:notify-send.sh 'Button1 Action'" \
+        -o "Button2 Action:notify-send.sh 'Button2 Action'" \
         -l "notify-send.sh 'Close Action'"

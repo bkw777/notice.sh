@@ -26,12 +26,13 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 	echo "$0 debug logging to $e" >&2
 	exec 2>${TMP}/.${SELF}.${$}.e
 	set -x
+	ARGV=($0 $@)
 	trap "set >&2" 0
 }
 
 VERSION="1.2-bkw777"
 ACTION_SH=${0%/*}/notify-action.sh
-GDBUS_CALL="call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications"
+GDBUS_CALL=(call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications)
 
 typeset -i i=0 ID=0 EXPIRE_TIME=-1 URGENCY=1
 unset ID_FILE
@@ -79,7 +80,6 @@ Application Options:
   -c, --category=TYPE[,TYPE...]     Specifies the notification category.
   -h, --hint=NAME:VALUE[:TYPE]      Specifies basic extra data to pass.
   -o, --action=LABEL:COMMAND        Specifies an action. Can be passed multiple times. LABEL is usually a button's label. COMMAND is a shell command executed when action is invoked.
-  -d, --default-action=COMMAND      Specifies the default action which is usually invoked by clicking the notification.
   -l, --close-action=COMMAND        Specifies the action invoked when notification is closed.
   -p, --print-id                    Print the notification ID to the standard output.
   -r, --replace=ID                  Replace (update) an existing notification.
@@ -95,7 +95,7 @@ abrt () { echo "${SELF}: ${@}" >&2 ; exit 1 ; }
 
 notify_close () {
 	i=${2} ;((i)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
-	gdbus ${GDBUS_CALL} --method org.freedesktop.Notifications.CloseNotification -- "${1}" >&-
+	gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.CloseNotification -- "${1}" >&-
 }
 
 process_urgency () {
@@ -134,11 +134,9 @@ process_action () {
 	ACMDS+=("${k}" "${a[1]}")
 }
 
-# key=default: key:command and key:label, with empty label
-# key=close:   key:command, no key:label (no button for the on-close event)
+# key=close:   key:command, no key:label
 process_special_action () {
 	[[ "${2}" ]] || abrt "Command must not be empty"
-	[[ "${1}" != "close" ]] && AKEYS+=("\"${1}\",\"\"")
 	ACMDS+=("${1}" "${2}")
 }
 
@@ -187,10 +185,6 @@ while ((${#})) ; do
 			[[ "${1}" == --action=* ]] && s=${1#*=} || { shift ;s=${1} ; }
 			process_action "${s}"
 			;;
-		-d|--default-action|--default-action=*)
-			[[ "${1}" == --default-action=* ]] && s=${1#*=} || { shift ;s=${1} ; }
-			process_special_action default "${s}"
-			;;
 		-l|--close-action|--close-action=*)
 			[[ "${1}" == --close-action=* ]] && s=${1#*=} || { shift ;s=${1} ; }
 			process_special_action close "${s}"
@@ -228,7 +222,7 @@ for s in "${HINTS[@]}" ;do h+=,${s} ;done
 
 # send the dbus message, collect the notification ID
 typeset -i OLD_ID=${ID} NEW_ID=0
-s=$(gdbus ${GDBUS_CALL} --method org.freedesktop.Notifications.Notify -- \
+s=$(gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.Notify -- \
 	"${APP_NAME}" ${ID} "${ICON}" "${SUMMARY}" "${BODY}" \
 	"[${a}]" "{${h}}" "${EXPIRE_TIME}")
 

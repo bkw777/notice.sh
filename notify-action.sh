@@ -8,6 +8,7 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 	echo "$0 debug logging to $e" >&2
 	exec 2>"$e"
 	set -x
+	ARGV=($0 $@)
 	trap "set >&2" 0
 }
 
@@ -63,6 +64,7 @@ doit () {
 	gdbus ${GDBUS_MONITOR} & echo ${!} >> "${GDBUS_PIDFILE}"
 } |while IFS=" :.(),'" read x x x x e x i x k x ;do
 	((i==ID)) || continue
+	${DEBUG_NOTIFY_SEND} && echo "event=\"$e\" key=\"$k\"" >&2
 	case "${e}" in
 		"NotificationClosed") doit "close" ;;
 		"ActionInvoked") doit "${k}" ;;
