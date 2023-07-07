@@ -1,9 +1,9 @@
-# notify-send.sh
+# notice.sh
 
-Replacement for notify-send (from libnotify) with ability to update and close existing notifications, and specify commands to be run in response to actions.
+Desktop notification client using only bash and gdbus.
 
-This is [bkw777/notify-send.sh.sh](https://github.com/bkw777/notify-send.sh),  
-a rewrite of [vlevit/notify-send.sh](https://github.com/vlevit/notify-send.sh)  
+This is [bkw777/notice.sh](https://github.com/bkw777/notice.sh),  
+originally a rewrite of [vlevit/notify-send.sh](https://github.com/vlevit/notify-send.sh)
 
 Differences:
 * Refactored to remove all the unnecessary external tools (dc, bc, sed)
@@ -12,6 +12,7 @@ Differences:
 * General optimizing and tightening
 * Fix background process management for actions
 * Remove redundant commandline options
+* Combine notify-send.sh and notify-action.sh into single notice.sh
 
 Requires `bash` and `gdbus` (part of glib2).
 
@@ -23,7 +24,7 @@ $ sudo make install
 
 ## Usage
 ```
-notify-send.sh [OPTION...] [TITLE] [BODY]
+notice [OPTION...] [TITLE] [BODY]
 
 Options:
 -N, --app-name=APP_NAME           Specify the formal name of application sending the notification.
@@ -35,17 +36,23 @@ Options:
                                     https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
                                   * path to an image file
 
+-T, --title=TITLE                 Title of notification
+
+-B, --body=BODY                   Message body
+                                  If both this and trailing non-option args are supplied,
+                                  this takes precedence and the trailing args are ignored
+
+-a, --action=[LABEL:]COMMAND      Specify an action button. Can be given multiple times.
+                                  LABEL is the label for the button.
+                                  COMMAND is a shell command to run when LABEL button is pressed.
+                                  If LABEL: is absent, COMMAND is run when the notification is dismissed.
+
 -h, --hint=NAME:VALUE[:TYPE]      Specify extra data. Can be given multiple times. Examples:
                                   --hint=urgency:0
                                   --hint=category:device.added
                                   --hint=transient:false
                                   --hint=desktop-entry:firefox
                                   --hint=image-path:/path/to/file.png|jpg|svg|...
-
--a, --action=[LABEL:]COMMAND      Specify an action button. Can be given multiple times.
-                                  LABEL is a buttons label.
-                                  COMMAND is a shell command to run when LABEL button is pressed.
-                                  If LABEL is absent, COMMAND is run when the notification is dismissed.
 
 -p, --print-id                    Print the notification ID.
 
@@ -65,56 +72,73 @@ Options:
 -?, --help                        This help.
 ```
 
+There is also a `-%` option which is used internally to launch the background process to watch dbus for the button presses and run the commands specified by --action
+
+As a convenience, any trailing non-option arguments are taken as another way to supply the message body instead of --body  
+This allows to send simple notifications by just:  
+`notice this is a message` vs `notice --body="this is a message"` or `notice -B "this is a message"`
+If both --body and trailing args are supplied, --body is used and the trailing args are ignored.
+
+`--` ends option parsing, which can be used to prevent text that looks like options from being interpreted as more options.  
+Example: `notice -n dialog-information -- --foo --bar -a -b these are not options`  
+will produce a notification with the message body text `--foo --bar -a -b these are not options`
+
 Reference: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
 
-So, for example, to notify a user of a new email
+So, for example, to notify a user of a new email:
 ```
-$ notify-send.sh --icon-name=mail-unread --app-name=mail --hint=sound-name:message-new-email Subject Message
+$ notice --icon-name=mail-unread --app-name=mail --hint=sound-name:message-new-email --title=Subject --body=Message
 ```
 
 To replace or close an existing message first we need to know its id.
-To know the id we have to run `notify-send.sh` with `--print-id` the first time
+To know the id we have to run `notice` with `--print-id` the first time:
 ```
-$ notify-send.sh --print-id "The Subject" "The Message"
+$ notice -t 0 --print-id Initial Message
 37
 ```
 
-Update this notification using the `--id` option
+Update this notification using the `--id` option:
 ```
-$ notify-send.sh --id=37 "New Subject" "New Message"
+$ notice -t 0 --id=37 Updated Message
 ```
 
-Close this notification
+Close this notification:
 ```
-$ notify-send.sh --id=37 --dismiss
+$ notice --id=37 --dismiss
 ```
 
 Use `--id=@filename` to both store & retrieve the ID from a file to keep updating a single notification  
-For example, to increase volume by 5% and show the current volume value
+For example, to increase volume by 5% and show the current volume value:
 ```
-$ notify-send.sh --id=@/tmp/volumenotification "Increase Volume" "$(amixer sset Master 5%+ | awk '/[0-9]+%/ {print $2,$5}')"
+$ notice --id=@/tmp/volumenotification --icon=sound --title="Audio Volume" $(amixer sset Master 5%+ |awk '/[0-9]+%/ {print $2,$5}')
 ```
+Then press up-arrow and Enter to repeat the same command a few times in a row,
+and note that a single notification updates rather than adding more notifications.
 
-To add one or more buttons to the notification, use one or more `--action=...`
+To add one or more buttons to the notification, use one or more `--action=...`:
 ```
-$ notify-send.sh --action="Show another notification:notify-send.sh 'New Title' 'New Message'" "Initial Title" "Initial Message"
+$ notice --action="Show another notification:notice New Message" Initial Message
 ```
 
 To perform an action when the notification is closed, use `--action=...` with no `LABEL:`
 ```
-$ notify-send.sh \
-  -a "Button 1:notify-send.sh 'Button 1 was pressed'" \
-  -a "Button 2:notify-send.sh 'Button 2 was pressed'" \
-  -a "Button 3:notify-send.sh 'Button 3 was pressed'" \
-  -a "notify-send.sh 'Notification was closed'" \
-  "Actions Test Title" \
-  "Actions Test Message"
+$ notice \
+  -n dialog-information \
+  -t 0 \
+  -a "Button 1:notice 'Button 1 was pressed'" \
+  -a "Button 2:notice 'Button 2 was pressed'" \
+  -a "Button 3:notice 'Button 3 was pressed'" \
+  -a "notice 'Notification was closed'" \
+  -T "Actions Test Title" \
+  -B "Actions Test Message"
 ```
 
-To perform a "default action", when the notification is clicked but not on any button, use `--action=...` with `"":` or `'':` or `:` for `LABEL:`  
+To perform a "default action", when the notification is clicked but not on any button, use `--action=...` with `"":` or `'':` for `LABEL:`  
 This is very similar to the close action above, because clicking on a notification generally dismisses it.  
+```
+$ notice -a "'':notice 'default action was invoked'" -T "test default action" "message body"
+```
 Not all notification daemons support the "default action", so for example on XFCE this just creates a button with a "" label.  
-In that case, you can usually just use the close action to get the same effect.
-```
-$ notify-send.sh -a "'':notify-send.sh 'default action was invoked'" "test default action" "message body"
-```
+In that case, you can usually just use the close action (`--action=...` with no `LABEL:` not even the colon) combined with `-t 0` to get almost the same effect.
+It's not exactly the same, because the close action is also invoked if the notification closes by itself from normal timeout expiration, while default-action is only invoked if the user clicks on the notification. This is why you probably want to use `-t 0` with close-action, to prevent the notification from closing except by clicking it.
+

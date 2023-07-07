@@ -1,16 +1,17 @@
 
-SOURCES = notify-send.sh notify-action.sh
+name = notice
+src = $(name).sh
 
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 
 PHONY: all
-all: $(SOURCES)
+all: $(src)
 
 install: all
 	@mkdir -p $(BINDIR)
-	@install -v -o root -m 755 $(SOURCES) $(BINDIR)
+	@install -v -o root -m 755 $(src) $(BINDIR)/$(name)
 
 PHONY: uninstall
 uninstall:
-	@cd $(BINDIR) && rm -v $(SOURCES)
+	@rm -v $(BINDIR)/$(name)
