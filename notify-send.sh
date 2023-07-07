@@ -1,28 +1,14 @@
 #!/usr/bin/env bash
-# notify-send.sh - replacement for notify-send with more features
-# Copyright (C) 2015-2023 notify-send.sh authors (see AUTHORS file)
+# notify-send.sh - replacement for notify-send
 # https://github.com/bkw777/notify-send.sh
-
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 # reference
 # https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
 
-SELF=${0##*/}
-TMP=${XDG_RUNTIME_DIR:-/tmp}
-${DEBUG_NOTIFY_SEND:=false} && {
-	e="${TMP}/.${SELF}.${$}.e"
+SELF="${0##*/}"
+tself="${0//\//_}"
+TMP="${XDG_RUNTIME_DIR:-/tmp}"
+${DEBUG:=false} && {
+	e="${TMP}/${tself}.${$}.e"
 	echo "$0 debug logging to $e" >&2
 	exec 2>"$e"
 	set -x
@@ -30,22 +16,22 @@ ${DEBUG_NOTIFY_SEND:=false} && {
 	trap "set >&2" 0
 }
 
-VERSION="1.2-bkw777"
-ACTION_SH=${0%/*}/notify-action.sh
+VERSION="1.3-bkw777"
+ACTION_SH="${0%/*}/notify-action.sh"
 GDBUS_CALL=(call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications)
 
-typeset -i i=0 ID=0 EXPIRE_TIME=-1 URGENCY=1
+typeset -i i=0 ID=0 EXPIRE_TIME=-1
 unset ID_FILE
 AKEYS=()
 ACMDS=()
 HINTS=()
-APP_NAME=${SELF}
+APP_NAME="${SELF}"
+ICON=
 PRINT_ID=false
 EXPLICIT_CLOSE=false
-SUMMARY=
+DISMISS=false
+TITLE=
 BODY=
-positional=false
-summary_set=false
 _r=
 
 typeset -Ar HINT_TYPES=(
@@ -63,29 +49,51 @@ typeset -Ar HINT_TYPES=(
 	[urgency]=byte
 )
 
+typeset -r ifs="$IFS"
+
 help () {
 	cat <<EOF
 Usage:
-  notify-send.sh [OPTION...] <SUMMARY> [BODY] - create a notification
+  ${SELF} [OPTION...] [TITLE] [BODY]
 
-Help Options:
-  -?|--help                         Show help options
+Options:
+  -N, --app-name=APP_NAME           Specify the formal name of application sending the notification.
+                                    ex: "Mullvad VPN"
 
-Application Options:
-  -u, --urgency=LEVEL               Specifies the urgency level (low, normal, critical).
-  -t, --expire-time=TIME            Specifies the timeout in milliseconds at which to expire the notification.
-  -f, --force-expire                Actively close the notification after the expire time, or after processing any action.
-  -a, --app-name=APP_NAME           Specifies the app name for the icon.
-  -i, --icon=ICON[,ICON...]         Specifies an icon filename or stock icon to display.
-  -c, --category=TYPE[,TYPE...]     Specifies the notification category.
-  -h, --hint=NAME:VALUE[:TYPE]      Specifies basic extra data to pass.
-  -o, --action=LABEL:COMMAND        Specifies an action. Can be passed multiple times. LABEL is usually a button's label. COMMAND is a shell command executed when action is invoked.
-  -l, --close-action=COMMAND        Specifies the action invoked when notification is closed.
-  -p, --print-id                    Print the notification ID to the standard output.
-  -r, --replace=ID                  Replace (update) an existing notification.
-  -R, --replace-file=FILE           Store and load notification replace ID to/from this file.
-  -s, --close=ID                    Close notification. With -R, get ID from -R file.
-  -v, --version                     Version of the package.
+  -n, --icon=ICON                   Specify an image or icon to display.
+                                    * installed *.desktop name   ex: "firefox"
+                                    * standard themed icon name  ex: "dialog-information"
+                                      https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
+                                    * path to image file
+
+  -h, --hint=NAME:VALUE[:TYPE]      Specify extra data. Can be given multiple times. Examples:
+                                    --hint=urgency:0
+                                    --hint=category:device.added
+                                    --hint=transient:false
+                                    --hint=desktop-entry:firefox
+                                    --hint=image-path:/path/to/file.png|jpg|svg|...
+
+  -a, --action=[LABEL:]COMMAND      Specify an action button. Can be given multiple times.
+                                    LABEL is a buttons label.
+                                    COMMAND is a shell command to run when LABEL button is pressed.
+                                    If LABEL is absent, COMMAND is run when the notification is dismissed.
+
+  -p, --print-id                    Print the notification ID.
+
+  -i, --id=<ID|@FILENAME>           Specify the ID of an existing notification to update or dismiss.
+                                    If "@FILENAME", read ID from & write ID to FILENAME.
+
+  -t, --expire-time=TIME            Specify the time in seconds for the notification to live.
+                                    -1 = server default, 0 = never expire, default = -1
+
+  -f, --force-expire                Actively close the notification after the expire time,
+                                    or after processing any of it's actions.
+
+  -d, --dismiss                     Close notification. (requires --id)
+
+  -v, --version                     Display script version.
+
+  -?, --help                        This help.
 
 Reference: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
 EOF
@@ -93,148 +101,112 @@ EOF
 
 abrt () { echo "${SELF}: $@" >&2 ; exit 1 ; }
 
-notify_close () {
-	i=$2 ;((i)) && sleep ${i:0:-3}.${i:$((${#i}-3))}
-	gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.CloseNotification -- "$1" >&-
+_dismiss () {
+	((EXPIRE_TIME>0)) && sleep ${EXPIRE_TIME}
+	set -x
+	gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.CloseNotification -- ${ID} >&-
+	[[ -s ${ID_FILE} ]] && > "${ID_FILE}"
+	exit
 }
 
-process_urgency () {
-	case "$1" in
-		0|low) URGENCY=0 ;;
-		1|normal) URGENCY=1 ;;
-		2|critical) URGENCY=2 ;;
-		*) abrt "Urgency values: 0 low 1 normal 2 critical" ;;
-	esac
-}
-
-process_category () {
-	local a c ;IFS=, a=($1)
-	for c in "${a[@]}"; do
-		make_hint category "$c" && HINTS+=(${_r})
-	done
-}
-
-make_hint () {
-	_r= ;local n=$1 v=$2 t=${HINT_TYPES[$1]:-${3,,}}
-	[[ $t = string ]] && v="\"$v\""
-	_r="\"$n\":<$t $v>"
-}
-
-process_hint () {
-	local a ;IFS=: a=($1)
+_hint () {
+	local a ;IFS=: a=($1) ;IFS="$ifs"
 	((${#a[@]}==2 || ${#a[@]}==3)) || abrt "Hint syntax: \"NAME:VALUE[:TYPE]\""
-	make_hint "${a[0]}" "${a[1]}" ${a[2]} && HINTS+=(${_r})
+	local n="${a[0]}" v="${a[1]}" t="${a[2]}"
+	t=${HINT_TYPES[$n]:-${t,,}}
+	[[ $t = string ]] && v="\"$v\""
+	HINTS+=("\"$n\":<$t $v>")
 }
 
-process_action () {
-	local a k ;IFS=: a=($1)
-	((${#a[@]}==2)) || abrt "Action syntax: \"NAME:COMMAND\""
-	k=${#AKEYS[@]}
-	AKEYS+=("\"$k\",\"${a[0]}\"")
+_action () {
+	local a k ;IFS=: a=($1) ;IFS="$ifs"
+	case ${#a[@]} in
+		1) k=close a=("" ${a[0]}) ;;
+		2) k=${#AKEYS[@]} ;AKEYS+=("\"$k\",\"${a[0]}\"") ;;
+		*) abrt "Action syntax: \"[NAME:]COMMAND\"" ;;
+	esac
 	ACMDS+=("$k" "${a[1]}")
 }
 
-# key=close:   key:command, no key:label
-process_special_action () {
-	[[ "$2" ]] || abrt "Command must not be empty"
-	ACMDS+=("$1" "$2")
-}
+#### parse the commandline ####################################################
 
-process_posargs () {
-	[[ "$1" = -* ]] && ! ${positional} && abrt "Unknown option $1"
-	${summary_set} && BODY=$1 || SUMMARY=$1 summary_set=true
-}
+# Support "-x foo", "--xoption foo", and "--xoption=foo" with built-in getopts
+# by first just normalizing the long forms to the short form.
 
-while (($#)) ; do
-	s= i=0
-	case "$1" in
-		-\?|--help)
-			help
-			exit 0
-			;;
-		-v|--version)
-			echo "${SELF} ${VERSION}"
-			exit 0
-			;;
-		-u|--urgency|--urgency=*)
-			[[ "$1" = --urgency=* ]] && s=${1#*=} || { shift ;s=$1 ; }
-			process_urgency "$s"
-			;;
-		-t|--expire-time|--expire-time=*)
-			[[ "$1" = --expire-time=* ]] && EXPIRE_TIME=${1#*=} || { shift ;EXPIRE_TIME=$1 ; }
-			;;
-		-f|--force-expire|--explicit-close)
-			export EXPLICIT_CLOSE=true
-			;;
-		-a|--app-name|--app-name=*)
-			[[ "$1" = --app-name=* ]] && APP_NAME=${1#*=} || { shift ;APP_NAME=$1 ; }
-			export APP_NAME
-			;;
-		-i|--icon|--icon=*)
-			[[ "$1" = --icon=* ]] && ICON=${1#*=} || { shift ;ICON=$1 ; }
-			;;
-		-c|--category|--category=*)
-			[[ "$1" = --category=* ]] && s=${1#*=} || { shift ;s=$1 ; }
-			process_category "$s"
-			;;
-		-h|--hint|--hint=*)
-			[[ "$1" = --hint=* ]] && s=${1#*=} || { shift ;s=$1 ; }
-			process_hint "$s"
-			;;
-		-o|--action|--action=*)
-			[[ "$1" == --action=* ]] && s=${1#*=} || { shift ;s=$1 ; }
-			process_action "$s"
-			;;
-		-l|--close-action|--close-action=*)
-			[[ "$1" == --close-action=* ]] && s=${1#*=} || { shift ;s=$1 ; }
-			process_special_action close "$s"
-			;;
-		-p|--print-id)
-			PRINT_ID=true
-			;;
-		-r|--replace|--replace=*)
-			[[ "$1" = --replace=* ]] && ID=${1#*=} || { shift ;ID=$1 ; }
-			;;
-		-R|--replace-file|--replace-file=*)
-			[[ "$1" = --replace-file=* ]] && ID_FILE=${1#*=} || { shift ;ID_FILE=$1 ; }
-			[[ -s ${ID_FILE} ]] && read ID < "${ID_FILE}"
-			;;
-		-s|--close|--close=*)
-			[[ "$1" = --close=* ]] && i=${1#*=} || { shift ;i=$1 ; }
-			((i<1)) && ((ID)) && i=${ID}
-			((i)) && notify_close $i ${EXPIRE_TIME}
-			exit $?
-			;;
-		--)
-			positional=true
-			;;
-		*)
-			process_posargs "$1"
-			;;
+# convert all "--foo=bar" to "--foo bar"
+typeset a=()
+for x in "$@"; do
+	case "$x" in
+		--*=*) a+=("${x/=/ }") ;;
+		*) a+=("$x") ;;
 	esac
-	shift
 done
+# convert all "--xoption" to "-x"
+for ((i=0;i<${#a[@]};i++)) {
+	case "${a[i]}" in
+		--app-name)     a[i]='-N' ;;
+		--icon)         a[i]='-n' ;;
+		--hint)         a[i]='-h' ;;
+		--action)       a[i]='-a' ;;
+		--print-id)     a[i]='-p' ;;
+		--id)           a[i]='-i' ;;
+		--expire-time)  a[i]='-t' ;;
+		--force-expire) a[i]='-f' ;;
+		--dismiss)      a[i]='-d' ;;
+		--version)      a[i]='-v' ;;
+		--help)         a[i]='-?' ;;
+		--*)            a[i]='-!' ;;
+	esac
+}
+set -- "${a[@]}"
+(($#)) || set -- '-?'
+# parse the now normalized all-short options
+OPTIND=1
+while getopts 'N:n:h:a:pi:t:fdv?' x ;do
+	case "$x" in
+		N) APP_NAME="$OPTARG" ;;
+		n) ICON="$OPTARG" ;;
+		h) _hint "$OPTARG" ;;
+		a) _action "$OPTARG" ;;
+		p) PRINT_ID=true ;;
+		i) [[ ${OPTARG:0:1} == '@' ]] && ID_FILE="${OPTARG:1}" || ID=$OPTARG ;;
+		t) EXPIRE_TIME=$OPTARG ;;
+		f) export EXPLICIT_CLOSE=true ;;
+		d) DISMISS=true ;;
+		v) echo "${SELF} ${VERSION}" ;exit 0 ;;
+		'?') help ;exit 0 ;;
+		*) help ;exit 1 ;;
+	esac
+done
+shift $((OPTIND-1))
+TITLE="$1" ;shift
+BODY="$1" ;shift
+
+# if we don't have an ID, try ID_FILE
+((ID<1)) && [[ -s "${ID_FILE}" ]] && read ID < "${ID_FILE}"
+
+# if we got a dismiss command, then do that now and exit
+((ID)) && ${DISMISS} && _dismiss
 
 # build the actions & hints strings
-a= ;for s in "${AKEYS[@]}" ;do a+=,$s ;done ;a=${a:1}
-make_hint urgency "${URGENCY}" ;h=${_r}
-for s in "${HINTS[@]}" ;do h+=,$s ;done
+a= ;for s in "${AKEYS[@]}" ;do a+=",$s" ;done ;a="${a:1}"
+h= ;for s in "${HINTS[@]}" ;do h+=",$s" ;done ;h="${h:1}"
+typeset -i t=${EXPIRE_TIME} ;((t>0)) && ((t=t*1000))
 
 # send the dbus message, collect the notification ID
 typeset -i OLD_ID=${ID} NEW_ID=0
 s=$(gdbus ${GDBUS_CALL[@]} --method org.freedesktop.Notifications.Notify -- \
-	"${APP_NAME}" ${ID} "${ICON}" "${SUMMARY}" "${BODY}" \
-	"[$a]" "{$h}" "${EXPIRE_TIME}")
+	"${APP_NAME}" ${ID} "${ICON}" "${TITLE}" "${BODY}" "[$a]" "{$h}" "${t}")
 
 # process the ID
-s=${s%,*} NEW_ID=${s#* }
+s="${s%,*}" NEW_ID="${s#* }"
 ((NEW_ID)) || abrt "invalid notification ID from gdbus"
 ((OLD_ID)) || ID=${NEW_ID}
 [[ "${ID_FILE}" ]] && ((OLD_ID<1)) && echo ${ID} > "${ID_FILE}"
 ${PRINT_ID} && echo ${ID}
 
-# bg task to monitor dbus and perform the actions
+# background task to monitor dbus and perform the actions
 ((${#ACMDS[@]})) && setsid -f "${ACTION_SH}" ${ID} "${ACMDS[@]}" >&- 2>&- &
 
-# bg task to wait expire time and then actively close notification
-${EXPLICIT_CLOSE} && ((EXPIRE_TIME)) && setsid -f "$0" -t ${EXPIRE_TIME} -s ${ID} >&- 2>&- <&- &
+# background task to wait expire time and then actively dismiss the notification
+${EXPLICIT_CLOSE} && ((EXPIRE_TIME)) && setsid -f "$0" -t ${EXPIRE_TIME} -i ${ID} -d >&- 2>&- <&- &
