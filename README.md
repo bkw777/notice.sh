@@ -121,24 +121,24 @@ $ notice --icon=mail-unread --app-name=mail --hint=sound-name:message-new-email 
 ```
 (not all notification servers support sounds, so you may not hear any sound)
 
-To update or close an existing notification, you need to know its ID.
-To know the ID you have to collect it from `--print-id` when it's created the first time:
+To update or close an existing notification, you need to know its ID.  
+To know the ID you have to collect it from `--print-id` when it's created.
 ```
 $ notice -t 0 --print-id Initial Message
 37
 ```
 
-Update this notification using `--id`:
+Update this notification using `--id`
 ```
 $ notice -t 0 --id=37 Updated Message
 ```
 
-Close this notification:
+Close this notification
 ```
 $ notice --id=37 --dismiss
 ```
 
-`--id=@filename` automates that process:
+`--id=@filename` automates that process
 ```
 $ notice -t 0 -i @/tmp/nid Initial Message
 $ sleep 2
@@ -147,13 +147,13 @@ $ sleep 2
 $ notice -d -i @/tmp/nid
 ```
 
-Example, to increase volume by 5% and show the current volume value:
+Example, to increase volume by 5% and show the current volume value
 ```
 $ notice -i @/tmp/volumenotification -n sound -T "Audio Volume" $(amixer sset Master 5%+ |awk '/[0-9]+%/ {print $2,$5}')
 ```
 Repeat the same command a few times in a row, and see that a single notification updates rather than adding more notifications.
 
-To add one or more buttons to the notification, use one or more `--action`:
+To add one or more buttons to the notification, use one or more `--action`
 ```
 $ notice -t 0 -a "white xterm:xterm -bg white -fg black" -a "black xterm:xterm -bg black -fg white" action buttons
 ```
