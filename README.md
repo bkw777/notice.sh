@@ -117,8 +117,9 @@ Reference: https://specifications.freedesktop.org/notification-spec/notification
 
 So, for example, to notify a user of a new email:
 ```
-$ notice --icon-name=mail-unread --app-name=mail --hint=sound-name:message-new-email --title="The Subject" --body="Some body text"
+$ notice --icon=mail-unread --app-name=mail --hint=sound-name:message-new-email --title="The Subject" --body="Some body text"
 ```
+(not all notification servers support sounds, so you may not hear any sound)
 
 To update or close an existing notification, you need to know its ID.
 To know the ID you have to collect it from `--print-id` when it's created the first time:
