@@ -136,7 +136,7 @@ abrt () { echo "${SELF}: $@" >&2 ; exit 1 ; }
 # to the parent process, it traps the signal to exit itself,
 # and it's child gdbus process exits itself naturally on HUP?
 
-ad_kill_obsolete_daemons () {
+kill_obsolete_daemons () {
 	local f d x n ;local -i i p
 	n=$1 ;shift
 	for f in $@ ;do
@@ -151,7 +151,7 @@ ad_kill_obsolete_daemons () {
 	done
 }
 
-ad_kill_current_daemon () {
+kill_current_daemon () {
 	[[ -s $1 ]] || exit 0
 	local d x ;local -i i p
 	read d i p x < $1
@@ -160,8 +160,8 @@ ad_kill_current_daemon () {
 	kill $p
 }
 
-ad_run () {
-	((${#1})) && setsid -f "$1" >&- 2>&- <&-
+run () {
+	(($#)) && eval setsid -f $@ >&- 2>&- <&-
 	${FORCE_CLOSE} && "$0" -i ${ID} -c
 }
 
@@ -174,9 +174,9 @@ action_daemon () {
 	local f="${TMP}/${tself}.${$}.p" l="${TMP}/${tself}.+([0-9]).p"
 	echo -n "${DISPLAY} ${ID} " > $f
 	shopt -s extglob
-	ad_kill_obsolete_daemons $f $l
+	kill_obsolete_daemons $f $l
 	shopt -u extglob
-	trap "ad_kill_current_daemon $f" 0
+	trap "kill_current_daemon $f" 0
 	local e k x ;local -i i
 	{
 		gdbus monitor ${GDBUS_ARGS[@]} -- & echo ${!} >> $f
@@ -184,8 +184,8 @@ action_daemon () {
 		((i==ID)) || continue
 		${DEBUG} && printf 'event="%s" key="%s"\n' "$e" "$k" >&2
 		case "$e" in
-			"NotificationClosed") ad_run "${c[close]}" ;;
-			"ActionInvoked") ad_run "${c[$k]}" ;;
+			"NotificationClosed") run "${c[close]}" ;;
+			"ActionInvoked") run "${c[$k]}" ;;
 		esac
 		break
 	done
@@ -218,10 +218,10 @@ add_action () {
 	local a k ;IFS=: a=($1) ;IFS="${ifs}"
 	case ${#a[@]} in
 		1) k=close a=("" "${a[0]}") ;;
-		2) ((${#a[0]})) && k=$((KI++)) || k=default ;((${#AKEYS})) && AKEYS+=, ;AKEYS+="\"${k}\",\"${a[0]}\"" ;;
+		2) ((${#a[0]})) && k=$((KI++)) || k=default ;((${#AKEYS})) && AKEYS+=, ;AKEYS+="\"$k\",\"${a[0]}\"" ;;
 		*) abrt "syntax: -a or --action=\"[[LABEL]:]COMMAND\"" ;;
 	esac
-	ACMDS+=("${k}" "${a[1]}")
+	ACMDS+=("$k" "${a[1]}")
 }
 
 ########################################################################
