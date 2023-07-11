@@ -205,7 +205,7 @@ close_notification () {
 }
 
 add_hint () {
-	local -A a ;IFS=: a=($1) ;IFS="${ifs}"
+	local -a a ;IFS=: a=($1) ;IFS="${ifs}"
 	((${#a[@]}==2 || ${#a[@]}==3)) || abrt "syntax: -h or --hint=\"NAME:VALUE[:TYPE]\""
 	local n="${a[0]}" v="${a[1]}" t="${a[2],,}"
 	: ${t:=${HINT_TYPES[$n]}}
@@ -215,7 +215,7 @@ add_hint () {
 }
 
 add_action () {
-	local k ;local -A a ;IFS=: a=($1) ;IFS="${ifs}"
+	local k ;local -a a ;IFS=: a=($1) ;IFS="${ifs}"
 	case ${#a[@]} in
 		1) k=close a=("" "${a[0]}") ;;
 		2) ((${#a[0]})) && k=$((KI++)) || k=default ;((${#AKEYS})) && AKEYS+=, ;AKEYS+="\"$k\",\"${a[0]}\"" ;;
