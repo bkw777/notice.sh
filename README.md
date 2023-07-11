@@ -188,4 +188,6 @@ $ notice \
 ```
 
 Quoting complex commandlines within actions can get tricky, but at least some level of nested quoting is possible
-`notice -t0 -a "simple:xcalc" -a "complex:xterm -bg black -fg white -e bash -c 'echo $PWD ;ls -la ;read -p \"press enter to close\" ;echo bye\! ;sleep 1'" complex action`
+```
+notice -t0 -a "simple:xcalc" -a "complex:xterm -bg black -fg white -e bash -c 'echo $PWD ;ls -la ;read -p \"press enter to close\" ;echo bye\! ;sleep 1'" complex action
+```
