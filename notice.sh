@@ -2,6 +2,7 @@
 # notice.sh - desktop notification client
 # Brian K. White <b.kenyon.w@gmail.com>
 # https://github.com/bkw777/notice.sh
+# license GPL3
 # https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
 set +H
 
@@ -17,18 +18,18 @@ ${DEBUG:=false} && {
 	trap "set >&2" 0
 }
 
-VERSION="2.0"
+VERSION="2.1"
 GDBUS_ARGS=(--session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications)
 GDBUS_PIDFILE="${TMP}/${tself}.${$}.p"
 GDBUS_PIDFILES="${TMP}/${tself}.+([0-9]).p"
 
-typeset -i i=0 p=0 ID=0 EXPIRE_TIME=-1 KI=0
+typeset -i i=0 p=0 ID=0 TTL=-1 KI=0
 typeset -a ACMDS=()
-unset ID_FILE ICON TITLE BODY AKEYS HINTS
+unset ID_FILE ICON SUMMARY BODY AKEYS HINTS
 APP_NAME="${SELF}"
 PRINT_ID=false
-EXPLICIT_CLOSE=false
-DISMISS=false
+FORCE_CLOSE=false
+CLOSE=false
 ACTION_DAEMON=false
 typeset -A c=()
 
@@ -52,57 +53,74 @@ typeset -r ifs="$IFS"
 help () {
 	cat <<EOF
 Usage:
-  ${SELF} [OPTIONS...] [BODY]
+  ${SELF} [OPTIONS...] [--] [SUMMARY]
 
 Options:
-  -N, --app-name=APP_NAME           Specify the formal name of application sending the notification.
+  -N, --app-name=APP_NAME           Formal name of the application sending the notification.
                                     ex: "Mullvad VPN"
 
-  -n, --icon=ICON                   Specify an image or icon to display.
-                                    * installed *.desktop name   ex: "firefox"
-                                    * standard themed icon name  ex: "dialog-information"
-                                      https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html)
-                                    * path to image file
+  -n, --icon=ICON                   Icon or image to display. Forms:
+                                    * basename of *.desktop file: --icon=firefox
+                                    * standard themed icon name:  --icon=dialog-information
+                                      https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
+                                    * path to image file          --icon=/path/to/file.svg  (png, jpg, ...)
 
-  -T, --title=TITLE                 Title
-
-  -B, --body=BODY                   Message body
+  -s, --summary=SUMMARY             Title message.
                                     If both this and trailing non-option args are supplied,
                                     this takes precedence and the trailing args will be ignored
 
-  -h, --hint=NAME:VALUE[:TYPE]      Specify extra data. Can be given multiple times. Examples:
-                                    --hint=urgency:0
-                                    --hint=category:device.added
+  -b, --body=BODY                   Message body  (note)
+
+  -h, --hint=NAME:VALUE[:TYPE]      Extra data. Can be given multiple times. Examples:
+                                    --hint=urgency:0      (note)
+                                    --hint=category:mail  (note)
                                     --hint=transient:false
                                     --hint=desktop-entry:firefox
                                     --hint=image-path:/path/to/file.png|jpg|svg|...
-  
-  -a, --action=[LABEL:]COMMAND      Specify an action button. Can be given multiple times.
-                                    LABEL is a buttons label.
-                                    COMMAND is a shell command to run when LABEL button is pressed.
-                                    If LABEL: is absent, COMMAND is run when the notification closes (whether clicked or expired).
-                                    If LABEL is "" or '', COMMAND is the "default-action", run only when/if the notification is clicked.
-                                    Not all notification daemons support default-action, so this may just create a normal button
-                                    with a literal "" label.
+
+                                    TYPE is the data type like "string" or "boolean"
+                                    and can usually be omitted.
+
+  -a, --action=[[LABEL]:]COMMAND    Action
+                                    Can be given multiple times.
+                                    LABEL is a label for a button.
+                                    COMMAND is a shell command to run when action is invoked.
+
+               LABEL:COMMAND        button-action
+                                    COMMAND is run if the LABEL button is pressed
+
+               :COMMAND             default-action  (note)
+                                    COMMAND is run if the notification is clicked
+
+               COMMAND              close-action
+                                    COMMAND is run when the notification closes (whether clicked or expired)
+                                    Use in combination with -t0 (never self-expire) to get a behavior similar to
+                                    default-action on servers that don't support default-action.
 
   -p, --print-id                    Print the notification ID.
 
-  -i, --id=<ID|@FILENAME>           Specify the ID of an existing notification to update or dismiss.
-                                    If "@FILENAME", read ID from & write ID to FILENAME.
+  -i, --id=ID                       ID of an existing notification to update or close.
+  -i, --id=@FILENAME                Read ID from & write ID to FILENAME.
 
-  -t, --expire-time=TIME            Specify the time in seconds for the notification to live.
-                                    -1 = server default, 0 = never expire, default = -1
+  -t, --ttl=TIME                    Time-To-Live, in seconds, before the notification closes itself.
+                                    0 = forever
 
-  -f, --force-expire                Actively close the notification after the expire time,
+  -f, --force-close                 Actively close the notification after TTL seconds,
                                     or after processing any of it's actions.
 
-  -d, --dismiss                     Close notification. (requires --id)
- 
+  -c, --close                       Close notification. (requires --id)
+
   -v, --version                     Display script version.
 
   -?, --help                        This help.
 
+  --                                End option parsing.
+                                    Anything after this is treated as literal SUMMARY text,
+                                    even if it looks like an option.
+
 Reference: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+
+(note) Not all servers support all features. Some options may do nothing on your server.
 EOF
 }
 
@@ -141,7 +159,7 @@ ad_kill_current_daemon () {
 
 ad_run () {
 	setsid -f ${c[${1}]} >&- 2>&- <&-
-	${EXPLICIT_CLOSE} && "$0" -i ${ID} -d
+	${FORCE_CLOSE} && "$0" -i ${ID} -d
 }
 
 action_daemon () {
@@ -171,9 +189,9 @@ action_daemon () {
 ########################################################################
 
 
-dismiss () {
+close_notification () {
 	((ID)) || abrt "no ID"
-	((EXPIRE_TIME>0)) && sleep ${EXPIRE_TIME}
+	((TTL>0)) && sleep ${TTL}
 	gdbus call ${GDBUS_ARGS[@]} --method org.freedesktop.Notifications.CloseNotification -- ${ID} >&-
 	[[ -s ${ID_FILE} ]] && > "${ID_FILE}"
 	exit
@@ -193,7 +211,7 @@ add_action () {
 	local a k ;IFS=: a=($1) ;IFS="$ifs"
 	case ${#a[@]} in
 		1) k=close a=("" "${a[0]}") ;;
-		2) k=$((KI++)) ;((${#AKEYS})) && AKEYS+=, ;AKEYS+="\"${k}\",\"${a[0]}\"" ;;
+		2) ((${#a[0]})) && k=$((KI++)) || k=default ;((${#AKEYS})) && AKEYS+=, ;AKEYS+="\"${k}\",\"${a[0]}\"" ;;
 		*) abrt "syntax: -a or --action=\"[NAME:]COMMAND\"" ;;
 	esac
 	ACMDS+=("${k}" "${a[1]}")
@@ -221,15 +239,15 @@ for ((i=0;i<${#a[@]};i++)) {
 	case "${a[i]}" in
 		--app-name)     a[i]='-N' ;;
 		--icon)         a[i]='-n' ;;
-		--title)        a[i]='-T' ;;
-		--body)         a[i]='-B' ;;
+		--summary)      a[i]='-s' ;;
+		--body)         a[i]='-b' ;;
 		--hint)         a[i]='-h' ;;
 		--action)       a[i]='-a' ;;
 		--print-id)     a[i]='-p' ;;
 		--id)           a[i]='-i' ;;
-		--expire-time)  a[i]='-t' ;;
-		--force-expire) a[i]='-f' ;;
-		--dismiss)      a[i]='-d' ;;
+		--ttl)          a[i]='-t' ;;
+		--force-close)  a[i]='-f' ;;
+		--close)        a[i]='-c' ;;
 		--version)      a[i]='-v' ;;
 		--help)         a[i]='-?' ;;
 		--?*)           a[i]='-!' ;;
@@ -239,19 +257,19 @@ for ((i=0;i<${#a[@]};i++)) {
 set -- "${a[@]}"
 # parse the now-normalized all-short options
 OPTIND=1
-while getopts 'N:n:T:B:h:a:pi:t:fdv%?!' x ;do
+while getopts 'N:n:s:b:h:a:pi:t:fcv%?!' x ;do
 	case "$x" in
 		N) APP_NAME="$OPTARG" ;;
 		n) ICON="$OPTARG" ;;
-		T) TITLE="$OPTARG" ;;
-		B) BODY="$OPTARG" ;;
+		s) SUMMARY="$OPTARG" ;;
+		b) BODY="$OPTARG" ;;
 		a) add_action "$OPTARG" ;;
 		h) add_hint "$OPTARG" ;;
 		p) PRINT_ID=true ;;
 		i) [[ ${OPTARG:0:1} == '@' ]] && ID_FILE="${OPTARG:1}" || ID=$OPTARG ;;
-		t) EXPIRE_TIME=$OPTARG ;;
-		f) EXPLICIT_CLOSE=true ;;
-		d) DISMISS=true ;;
+		t) TTL=$OPTARG ;;
+		f) FORCE_CLOSE=true ;;
+		c) CLOSE=true ;;
 		v) echo "${SELF} ${VERSION}" ;exit 0 ;;
 		%) ACTION_DAEMON=true ;;
 		'?') help ;exit 0 ;;
@@ -263,8 +281,8 @@ shift $((OPTIND-1))
 # if we don't have an ID, try ID_FILE
 ((ID<1)) && [[ -s "${ID_FILE}" ]] && read ID < "${ID_FILE}"
 
-# if we got a dismiss command, then do that now and exit
-${DISMISS} && dismiss
+# if we got a close command, then do that now and exit
+${CLOSE} && close_notification
 
 # if daemon mode, divert to that
 ${ACTION_DAEMON} && action_daemon "$@"
@@ -273,12 +291,12 @@ ${ACTION_DAEMON} && action_daemon "$@"
 # main
 #
 
-((${#BODY}<1)) && (($#)) && BODY="$@"
-typeset -i t=${EXPIRE_TIME} ;((t>0)) && ((t=t*1000))
+((${#SUMMARY}<1)) && (($#)) && SUMMARY="$@"
+typeset -i t=${TTL} ;((t>0)) && ((t=t*1000))
 
 # send the dbus message, collect the notification ID
 s=$(gdbus call ${GDBUS_ARGS[@]} --method org.freedesktop.Notifications.Notify -- \
-	"${APP_NAME}" ${ID} "${ICON}" "${TITLE}" "${BODY}" "[${AKEYS}]" "{${HINTS}}" "${t}")
+	"${APP_NAME}" ${ID} "${ICON}" "${SUMMARY}" "${BODY}" "[${AKEYS}]" "{${HINTS}}" "${t}")
 
 # process the collected ID
 s="${s%,*}" ID="${s#* }"
@@ -287,8 +305,8 @@ s="${s%,*}" ID="${s#* }"
 ${PRINT_ID} && echo ${ID}
 
 # background task to monitor dbus and perform the actions
-s= ;${EXPLICIT_CLOSE} && s='-f'
+s= ;${FORCE_CLOSE} && s='-f'
 ((${#ACMDS[@]})) && setsid -f "$0" -i ${ID} ${s} -% "${ACMDS[@]}" >&- 2>&- <&-
 
-# background task to wait expire time and then actively dismiss the notification
-${EXPLICIT_CLOSE} && ((EXPIRE_TIME)) && setsid -f "$0" -t ${EXPIRE_TIME} -i ${ID} -d >&- 2>&- <&-
+# background task to wait TTL seconds and then actively close the notification
+${FORCE_CLOSE} && ((TTL)) && setsid -f "$0" -t ${TTL} -i ${ID} -c >&- 2>&- <&-
