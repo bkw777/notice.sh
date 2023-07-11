@@ -25,33 +25,40 @@ It's also a single self-contained script that can be run from anywhere without n
 
 ## Usage
 ```
+$ notice --help
+
+notice - desktop notification client
+Version 2.2
+https://github.com/bkw777/notice.sh
+
 Usage:
-  ${SELF} [OPTIONS...] [--] [SUMMARY]
+  notice [OPTIONS...] [--] [SUMMARY]
 
 Options:
-  -N, --app-name=APP_NAME           Formal name of the application sending the notification.
-                                    ex: "Mullvad VPN"
+  -N, --app-name=APP_NAME           Formal name of the application sending the notification
+                                    --app-name="Super De-Duper"
 
-  -n, --icon=ICON                   Icon or image to display. Forms:
-                                    * basename of *.desktop file: --icon=firefox
-                                    * standard themed icon name:  --icon=dialog-information
+  -n, --icon=ICON                   Icon or image to display
+                                    --icon=firefox             - basename of *.desktop file
+                                    --icon=dialog-information  - standard themed icon name
                                       https://specifications.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
-                                    * path to image file          --icon=/path/to/file.svg  (png, jpg, ...)
+                                    --icon=/path/to/file.svg   - or png, jpg, etc
 
-  -s, --summary=SUMMARY             Title message.
+  -s, --summary=SUMMARY             Title message
                                     If both this and trailing non-option args are supplied,
-                                    this takes precedence and the trailing args will be ignored
+                                    this takes precedence and the trailing args are ignored.
 
-  -b, --body=BODY                   Message body  (note)
+  -b, --body=BODY                   Message body                        (note)
 
-  -h, --hint=NAME:VALUE[:TYPE]      Extra data. Can be given multiple times. Examples:
-                                    --hint=urgency:0      (note)
-                                    --hint=category:mail  (note)
+  -h, --hint=NAME:VALUE[:TYPE]      Extra data
+                                    Can be given multiple times.
+                                    --hint=urgency:0                    (note)
+                                    --hint=category:mail                (note)
                                     --hint=transient:false
                                     --hint=desktop-entry:firefox
                                     --hint=image-path:/path/to/file.png|jpg|svg|...
 
-                                    TYPE is the data type like "string" or "boolean"
+                                    TYPE is the data type like string or boolean
                                     and can usually be omitted.
 
   -a, --action=[[LABEL]:]COMMAND    Action
@@ -62,32 +69,31 @@ Options:
                LABEL:COMMAND        button-action
                                     COMMAND is run if the LABEL button is pressed
 
-               :COMMAND             default-action  (note)
+               :COMMAND             default-action                      (note)
                                     COMMAND is run if the notification is clicked
 
                COMMAND              close-action
                                     COMMAND is run when the notification closes (whether clicked or expired)
-                                    Use in combination with -t0 (never self-expire) to get a behavior similar to
-                                    default-action on servers that don't support default-action.
+                                    Use in combination with -t0 (never self-expire) to get a behavior
+                                    similar to default-action on servers that don't support default-action.
 
-  -p, --print-id                    Print the notification ID.
+  -i, --id=ID                       ID of an existing notification to update or close
+  -i, --id=@FILENAME                write ID to & read ID from FILENAME
+                                    If --id is not used, then ID is printed to stdout.
 
-  -i, --id=ID                       ID of an existing notification to update or close.
-  -i, --id=@FILENAME                Read ID from & write ID to FILENAME.
-
-  -t, --ttl=TIME                    Time-To-Live, in seconds, before the notification closes itself.
+  -t, --ttl=SECONDS                 Time-To-Live, in seconds, before the notification closes itself
                                     0 = forever
 
   -f, --force-close                 Actively close the notification after TTL seconds,
-                                    or after processing any of it's actions.
+                                    or after processing any of it's actions
 
-  -c, --close                       Close notification. (requires --id)
+  -c, --close                       Close notification - requires --id
 
-  -v, --version                     Display script version.
+  -v, --version                     Display script version
 
-  -?, --help                        This help.
+  -?, --help                        This help
 
-  --                                End option parsing.
+  --                                End option parsing
                                     Anything after this is treated as literal SUMMARY text,
                                     even if it looks like an option.
 
@@ -118,9 +124,9 @@ $ notice --icon=mail-unread --app-name=mail --hint=sound-name:message-new-email 
 (not all notification servers support sounds, so you may not hear any sound)
 
 To update or close an existing notification, you need to know its ID.  
-To know the ID you have to collect it from `--print-id` when it's created.
+To know the ID you can collect it from stdout when it's created
 ```
-$ notice --ttl=0 --print-id Initial Message
+$ notice --ttl=0 Initial Message
 37
 ```
 
@@ -134,35 +140,33 @@ Close this notification
 $ notice --id=37 --close
 ```
 
-`--id=@filename` automates that process
+Or, `--id=@filename` automates that
 ```
-$ idf=/tmp/notifcation_id.$$ \
-  ;notice -t0 -i @$idf Initial Message \
+$ f=/tmp/notifcation_id.$$ \
+  ;notice -t0 -i @$f Initial Message \
   ;sleep 2 \
-  ;notice -t0 -i @$idf Updated Message \
+  ;notice -t0 -i @$f Updated Message \
   ;sleep 2 \
-  ;notice -c -i @$idf
+  ;notice -c -i @$f
 ```
 
-Example, to increase volume by 5% and show the current volume value,  
-always updating the same notification rather than generating new ones
+Example, increase volume by 5% and show the new level,
+updating the same notification rather than generating new ones  
+(set the volume low, paste the command & enter, then up-arrow to repeat the same command several times)
 ```
-$ amixer sset Master 0 ;for ((i=0;i<10;i++)) {
-  notice -i @/tmp/vnid -n sound -s "Sound Volume" -b "$(amixer sset Master 5%+ |awk '/[0-9]+%/ {print $2,$5}')"
-  sleep 1
-}
+$ notice -i @/tmp/volume_notification -n sound -s "Sound Volume" -b "$(amixer sset Master 5%+ |awk '/[0-9]+%/ {print $2,$5}')"
 ```
 
-To add buttons to the notification, use one or more `--action`
+To add buttons to the notification, use one or more `--action=label:command`
 ```
 $ notice -t0 -a "white xterm:xterm -bg white -fg black" -a "black xterm:xterm -bg black -fg white" action buttons
 ```
 
-To set the "default-action", use `--action=":command ..."`  
+To specify a "default-action", use `--action=:command`  
 Action is invoked if the user clicks on the notification but not on any button.
 Not all servers support "default-action", so this option may do nothing.
 
-To set the "close-action", use `--action="command ..."`  
+To specify a "close-action", use `--action=command`  
 Action is invoked when the notification closes, if not already closed by some other action.
 Similar to default-action, in that if the user clicks on a notification, that closes it,
 and so would trigger the close-action. But close-action is also invoked if the notification
