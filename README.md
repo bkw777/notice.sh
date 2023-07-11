@@ -21,7 +21,8 @@ Requires `bash` and `gdbus` (part of glib2).
 $ sudo apt install bash libglib2.0-bin
 $ sudo make install
 ```
-It's also a single self-contained script that can be run from anywhere without necessarily "installing". For example, [bkw777/mainline](https://github.com/bkw777/mainline) includes it and runs it out of a lib dir.
+It's also a single self-contained script that can be run from anywhere without necessarily "installing".  
+For example, [bkw777/mainline](https://github.com/bkw777/mainline) includes it and runs it out of a lib dir.
 
 ## Usage
 ```
