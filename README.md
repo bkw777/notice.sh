@@ -104,9 +104,8 @@ Reference: https://specifications.freedesktop.org/notification-spec/notification
 
 There is also a `-%` option for internal use to launch the background process to watch dbus for the button presses and run the commands specified by `--action`
 
-As a convenience, any trailing non-option arguments are taken as alternative way to supply the summary instead of `--summary`  
-This allows to send simple notifications by just:  
-`notice this is a message` vs `notice --summary="this is a message"` or `notice -s "this is a message"`
+As a convenience, any trailing non-option arguments are an alternative way to supply the summary instead of `--summary`  
+This allows to send simple notifications by just: `notice this is a message`  
 If both `--summary` and trailing args are supplied, `--summary` is used and the trailing args are ignored.
 
 `--` ends option parsing, which can be used to prevent text that looks like options from being interpreted as more options.  
@@ -140,7 +139,11 @@ Close this notification
 $ notice --id=37 --close
 ```
 
-Or, `--id=@filename` automates that
+Or, `--id=@filename` automates that  
+As long as you give it the same filename each time:  
+The first time, the file will be created and the new ID written to it.  
+On update, the ID will be read from the file.  
+On close, the ID will be read from the file and the file will be deleted.
 ```
 $ f=/tmp/notifcation_id.$$ \
   ;notice -t0 -i @$f Initial Message \
@@ -150,9 +153,9 @@ $ f=/tmp/notifcation_id.$$ \
   ;notice -c -i @$f
 ```
 
-Example, increase volume by 5% and show the new level,
+Example, increase volume by 5% and show the new level,  
 updating the same notification rather than generating new ones  
-(set the volume low, paste the command & enter, then up-arrow to repeat the same command several times)
+(set the volume low, paste the command & enter, then up-arrow to repeat the command a few times)
 ```
 $ notice -i @/tmp/volume_notification -n sound -s "Sound Volume" -b "$(amixer sset Master 5%+ |awk '/[0-9]+%/ {print $2,$5}')"
 ```
@@ -163,17 +166,14 @@ $ notice -t0 -a "white xterm:xterm -bg white -fg black" -a "black xterm:xterm -b
 ```
 
 To specify a "default-action", use `--action=:command`  
-Action is invoked if the user clicks on the notification but not on any button.
+Action is invoked if the user clicks on the notification but not on any button.  
 Not all servers support "default-action", so this option may do nothing.
 
 To specify a "close-action", use `--action=command`  
-Action is invoked when the notification closes, if not already closed by some other action.
-Similar to default-action, in that if the user clicks on a notification, that closes it,
-and so would trigger the close-action. But close-action is also invoked if the notification
-closes itself from timimg out, and is not invoked if the notification closes as part of
-some other button-action or default-action.
-Use with `-t0` to get a behavior similar default-action when the notification server doesn't support default actions.  
-
+Action is invoked when the notification closes, if not already closed by some other action.  
+Similar to default-action, in that if the user clicks on a notification, that closes it, and so would trigger the close-action.  
+But close-action is also invoked if the notification closes itself from timimg out, and is not invoked if the notification closes as part of some other button-action or default-action.  
+Use with `-t0` to get a behavior similar default-action when the notification server doesn't support default actions.
 ```
 $ notice \
   -n dialog-information \
