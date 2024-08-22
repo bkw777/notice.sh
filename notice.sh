@@ -102,7 +102,7 @@ Options:
 
   -i, --id=ID                       ID of an existing notification to update or close
   -i, --id=@FILENAME                write ID to & read ID from FILENAME
-                                    If --id is not used, then ID is printed to stdout.
+                                    If --id is not set to a FILENAME, a new ID is printed to stdout.
 
   -t, --ttl=SECONDS                 Time-To-Live, in seconds, before the notification closes itself
                                     0 = forever
