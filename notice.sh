@@ -156,7 +156,7 @@ kill_current_daemon () {
 	local d x ;local -i i p
 	read d i p x < $1
 	rm -f $1
-	((p>1)) || exit
+	((p>1)) || exit 0
 	kill $p
 }
 
@@ -189,7 +189,7 @@ action_daemon () {
 		esac
 		break
 	done
-	exit
+	exit 0
 }
 
 #
@@ -201,7 +201,7 @@ close_notification () {
 	((TTL>0)) && sleep ${TTL}
 	gdbus call ${GDBUS_ARGS[@]} --method org.freedesktop.Notifications.CloseNotification -- ${ID} >&-
 	[[ ${ID_FILE} ]] && rm -f "${ID_FILE}"
-	exit
+	exit 0
 }
 
 add_hint () {
@@ -317,3 +317,5 @@ x= ;${FORCE_CLOSE} && x='-f'
 
 # background task to wait TTL seconds and then actively close the notification
 ${FORCE_CLOSE} && ((TTL>0)) && setsid -f "$0" -t ${TTL} -i ${ID} -c >&- 2>&- <&-
+
+exit 0
