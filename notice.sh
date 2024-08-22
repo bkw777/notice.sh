@@ -161,7 +161,7 @@ kill_current_daemon () {
 }
 
 run () {
-	(($#)) && eval setsid -f $@ >&- 2>&- <&-
+	(($#)) && { eval setsid $@ >&- 2>&- <&- & }
 	${FORCE_CLOSE} && "$0" -i ${ID} -c
 }
 
@@ -313,7 +313,7 @@ x="${x%,*}" ID="${x#* }"
 
 # background task to monitor dbus and perform the actions
 x= ;${FORCE_CLOSE} && x='-f'
-((${#ACMDS[@]})) && setsid -f "$0" -i ${ID} $x -% "${ACMDS[@]}" >&- 2>&- <&-
+((${#ACMDS[@]})) && { setsid "$0" -i ${ID} $x -% "${ACMDS[@]}" >&- 2>&- <&- & }
 
 # background task to wait TTL seconds and then actively close the notification
-${FORCE_CLOSE} && ((TTL>0)) && setsid -f "$0" -t ${TTL} -i ${ID} -c >&- 2>&- <&-
+${FORCE_CLOSE} && ((TTL>0)) && { setsid "$0" -t ${TTL} -i ${ID} -c >&- 2>&- <&- & }
