@@ -16,6 +16,9 @@ Differences:
 
 Requires `bash` and `gdbus` (part of glib2).
 
+If you need commandline compatibility with `notify-send` of [libnotify](https://gitlab.gnome.org/GNOME/libnotify), or with vlevit/notify-send.sh,
+try `notify-send.sh`: it's a wrapper around `notice.sh` to translate the different commandline options. It supports all respective options.
+
 ## Install
 ```
 $ sudo apt install bash libglib2.0-bin
